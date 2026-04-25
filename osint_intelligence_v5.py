@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OSINT INTELLIGENCE GATHERING SYSTEM v5.4
+OSINT INTELLIGENCE GATHERING SYSTEM v5.5
 Fuentes públicas y APIs autorizadas: DNS (DoH), TLS, cabeceras HTTP, HIBP, crt.sh, etc.
 El JSON final agrega huella técnica y correlación; no accede a cuentas privadas ni credenciales.
 """
@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
 
 import requests
 
@@ -24,6 +24,18 @@ DISCLAIMER_ES = (
     "Sin inferencias inventadas (p. ej. SO si InternetDB no lo publica). "
     "OSINT ilegal o acceso no autorizado a datos privados queda fuera de alcance."
 )
+
+SOCIAL_PS_BUSCADOR = [
+    "facebook.com/",
+    "twitter.com/",
+    "x.com/",
+    "instagram.com/",
+    "linkedin.com/in/",
+    "linkedin.com/company/",
+    "tiktok.com/@",
+    "youtube.com/@",
+    "github.com/",
+]
 
 
 class OSINTv5:
@@ -60,7 +72,7 @@ class OSINTv5:
 
     def _meta_base(self) -> Dict[str, Any]:
         return {
-            "version": "5.4",
+            "version": "5.5",
             "generado_utc": datetime.now(timezone.utc).isoformat(),
             "aviso_legal": DISCLAIMER_ES,
             "hibp_api_configurada": bool(os.environ.get("HIBP_API_KEY", "").strip()),
@@ -336,6 +348,7 @@ class OSINTv5:
             "cabeceras_http": {},
             "url_final": url,
             "codigo_http": None,
+            "documentos_en_pagina": set(),
         }
         try:
             r = self.s.get(url, timeout=self.timeout)
@@ -489,6 +502,27 @@ class OSINTv5:
             for reg in regiones:
                 if re.search(r"\b" + re.escape(reg) + r"\b", visible, re.IGNORECASE):
                     resultado["ubicaciones"].add(reg)
+            base_u = resultado["url_final"] or url
+            for m in re.finditer(r'href\s*=\s*"([^"]+\.pdf[^"]*)"', html, re.I):
+                href = (m.group(1) or "").strip()
+                if not href or href.startswith("javascript:"):
+                    continue
+                if href.startswith("//"):
+                    href = "https:" + href
+                elif href.startswith("/"):
+                    href = urljoin(base_u, href)
+                elif not href.startswith("http"):
+                    href = urljoin(base_u, href)
+                if href.lower().split("?", 1)[0].endswith(".pdf"):
+                    resultado["documentos_en_pagina"].add(href.split("?")[0])
+            for m in re.finditer(r'href\s*=\s*"([^"]+\.(?:docx?|xlsx?|pptx?))(?:\?[^"]*)?"', html, re.I):
+                href = (m.group(1) or "").strip()
+                if href.startswith("/"):
+                    href = urljoin(base_u, href)
+                elif not href.startswith("http"):
+                    href = urljoin(base_u, href)
+                if href.lower().startswith("http"):
+                    resultado["documentos_en_pagina"].add(href.split("?")[0])
         except Exception as e:
             print(f"  [-] Error Deep Scan: {e}")
 
@@ -1108,6 +1142,13 @@ class OSINTv5:
         self._enriquecer_shodan_con_huella_web(sh, out["extraccion_profunda"], host)
         out["shodan"] = sh
         out["escaneo_seguridad"] = self.escaneo_hallazgos_seguridad(host, url, sh)
+        gsets = self._construir_google_desde_informe_sets(out)
+        self._enriquecer_google_con_duckduckgo(
+            gsets,
+            [f"site:{host}", host, url[:120]],
+            SOCIAL_PS_BUSCADOR,
+        )
+        out["google"] = self._finalize_google_res(gsets)
         return out
 
     def _queries_filtraciones(self, objetivo: str) -> List[str]:
@@ -1277,6 +1318,16 @@ class OSINTv5:
         self, res: Dict[str, Any], dorks: List[str], social_ps: List[str]
     ) -> None:
         print("\n  [*] Complemento DuckDuckGo (cuando Google devuelve poco)...")
+        if isinstance(res.get("emails"), list):
+            res["emails"] = set(res["emails"])
+        if isinstance(res.get("redes"), list):
+            res["redes"] = set(res["redes"])
+        if isinstance(res.get("nombres"), list):
+            res["nombres"] = set(res["nombres"])
+        if isinstance(res.get("ubicaciones"), list):
+            res["ubicaciones"] = set(res["ubicaciones"])
+        if isinstance(res.get("filtraciones"), list):
+            res["filtraciones"] = set(res["filtraciones"])
         for dork in dorks[:7]:
             try:
                 for u in self.duckduckgo_html_urls(dork, limit=14):
@@ -1292,6 +1343,106 @@ class OSINTv5:
                 time.sleep(1.1)
             except Exception:
                 pass
+
+    @staticmethod
+    def _finalize_google_res(res: Dict[str, Any]) -> Dict[str, Any]:
+        em = res.get("emails") or []
+        if isinstance(em, set):
+            em = sorted(em)
+        rd = res.get("redes") or []
+        if isinstance(rd, set):
+            rd = sorted(rd)
+        nm = res.get("nombres") or []
+        if isinstance(nm, set):
+            nm = sorted(nm)
+        ub = res.get("ubicaciones") or []
+        if isinstance(ub, set):
+            ub = sorted(ub)
+        fl = res.get("filtraciones") or []
+        if isinstance(fl, set):
+            fl = sorted(fl)
+        out: Dict[str, Any] = {
+            "emails": [e for e in em if "example" not in str(e).lower()][:35],
+            "urls": list(dict.fromkeys([x for x in (res.get("urls") or []) if x]))[:40],
+            "redes": [x for x in rd if x][:35],
+            "nombres": [x for x in nm if x][:25],
+            "ubicaciones": [x for x in ub if x][:25],
+            "documentos": sorted(set(res.get("documentos") or []))[:30],
+            "filtraciones": [x for x in fl if x][:15],
+        }
+        if res.get("fuente_google_desde_pagina"):
+            out["fuente_google_desde_pagina"] = res["fuente_google_desde_pagina"]
+        return out
+
+    def _construir_google_desde_informe_sets(self, datos: Dict[str, Any]) -> Dict[str, Any]:
+        ext = datos.get("extraccion_profunda")
+        if not isinstance(ext, dict):
+            ext = {}
+        g: Dict[str, Any] = {
+            "emails": set(),
+            "urls": [],
+            "redes": set(),
+            "nombres": set(),
+            "ubicaciones": set(),
+            "documentos": [],
+            "filtraciones": set(),
+            "fuente_google_desde_pagina": "pagina_publica_analizada_metadatos_y_enlaces",
+        }
+        for e in ext.get("emails") or []:
+            es = str(e).strip().lower()
+            if "@" in es and "example" not in es:
+                g["emails"].add(es)
+        base_u = ext.get("url_final") or ""
+        for u in [base_u, ext.get("og_url"), ext.get("canonical")]:
+            if isinstance(u, str) and u.startswith("http"):
+                g["urls"].append(u.split("?")[0].rstrip("/"))
+        for rs in ext.get("redes_sociales") or []:
+            s = str(rs).strip()
+            if s.startswith("//"):
+                s = "https:" + s
+            elif s.startswith("www."):
+                s = "https://" + s
+            if s.startswith("http"):
+                g["redes"].add(s.split("?")[0].rstrip("/"))
+        for t in (ext.get("titulo_pagina"), ext.get("og_title")):
+            if isinstance(t, str) and len(t.strip()) > 2:
+                g["nombres"].add(t.strip()[:400])
+        bio = ext.get("bio_extraida")
+        if isinstance(bio, str) and len(bio.strip()) > 20:
+            g["nombres"].add(bio.strip()[:350])
+        for u in ext.get("ubicaciones") or []:
+            if u:
+                g["ubicaciones"].add(str(u))
+        for tel in ext.get("telefonos") or []:
+            if tel:
+                g["nombres"].add(f"telefono_en_pagina: {str(tel)[:40]}")
+        for d in ext.get("documentos_en_pagina") or []:
+            if isinstance(d, str) and d.startswith("http"):
+                g["documentos"].append(d.split("?")[0])
+                g["urls"].append(d.split("?")[0])
+        for tech in ext.get("tecnologias") or []:
+            if tech:
+                g["nombres"].add(f"tecnologia: {tech}")
+        return g
+
+    @staticmethod
+    def _merge_google_publico(a: Optional[Dict[str, Any]], b: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        def norm(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+            if not isinstance(d, dict):
+                return {}
+            return d
+
+        x, y = norm(a), norm(b)
+        return {
+            "emails": sorted(set(x.get("emails") or []) | set(y.get("emails") or []))[:40],
+            "urls": list(dict.fromkeys((x.get("urls") or []) + (y.get("urls") or [])))[:45],
+            "redes": sorted(set(x.get("redes") or []) | set(y.get("redes") or []))[:40],
+            "nombres": sorted(set(x.get("nombres") or []) | set(y.get("nombres") or []))[:30],
+            "ubicaciones": sorted(set(x.get("ubicaciones") or []) | set(y.get("ubicaciones") or []))[:30],
+            "documentos": sorted(set(x.get("documentos") or []) | set(y.get("documentos") or []))[:35],
+            "filtraciones": sorted(set(x.get("filtraciones") or []) | set(y.get("filtraciones") or []))[:18],
+            "fuente_google_desde_pagina": (x.get("fuente_google_desde_pagina") or y.get("fuente_google_desde_pagina") or ""),
+        }
 
     # ===== Google (fragil; solo heurística) =====
     def google_dorks(self, objetivo: str, tipo: str = "nombre") -> Dict[str, Any]:
@@ -1340,17 +1491,7 @@ class OSINTv5:
                 f'"{objetivo}" site:wikipedia.org',
             ]
 
-        social_ps = [
-            "facebook.com/",
-            "twitter.com/",
-            "x.com/",
-            "instagram.com/",
-            "linkedin.com/in/",
-            "linkedin.com/company/",
-            "tiktok.com/@",
-            "youtube.com/@",
-            "github.com/",
-        ]
+        social_ps = list(SOCIAL_PS_BUSCADOR)
         for dork in dorks:
             try:
                 url = f"https://www.google.com/search?q={quote(dork)}&hl=es&num=20"
@@ -1501,6 +1642,51 @@ class OSINTv5:
         print(f"  [+] Detectados {len(subs_list)} nombres en certificados")
         return subs_list
 
+    def _correlacion_desde_extraccion_plana(self, ext: Any, c: Dict[str, Set[str]]) -> None:
+        if not isinstance(ext, dict):
+            return
+        for e in ext.get("emails") or []:
+            if isinstance(e, str) and "@" in e and "example" not in e.lower():
+                c["emails"].add(e.strip().lower())
+        for tel in ext.get("telefonos") or []:
+            if tel:
+                c["telefonos"].add(str(tel).strip())
+        for u in ext.get("redes_sociales") or []:
+            s = str(u).strip()
+            if s.startswith("http"):
+                c["redes_sociales"].add(s.split("?")[0])
+        for u in ext.get("documentos_en_pagina") or []:
+            if isinstance(u, str) and u.startswith("http"):
+                c["redes_sociales"].add(u.split("?")[0])
+                c["infra"].add(f"documento_enlace {u[:200]}")
+        for loc in ext.get("ubicaciones") or []:
+            if loc:
+                c["ubicaciones"].add(str(loc))
+        for u in (ext.get("og_url"), ext.get("canonical"), ext.get("url_final")):
+            if isinstance(u, str) and u.startswith("http"):
+                c["redes_sociales"].add(u.split("?")[0])
+
+    def _correlacion_tls_dns_escaneo(self, datos: Dict[str, Any], c: Dict[str, Set[str]]) -> None:
+        tls = datos.get("tls_certificado_publico")
+        if isinstance(tls, dict):
+            for san in tls.get("sans") or []:
+                if isinstance(san, str) and san.strip():
+                    c["infra"].add(f"TLS SAN: {san.strip()[:200]}")
+            if tls.get("subject"):
+                c["infra"].add(f"TLS subject: {str(tls['subject'])[:200]}")
+        dns = datos.get("dns_doh")
+        if isinstance(dns, dict):
+            for rtype, vals in (dns.get("registros") or {}).items():
+                if not isinstance(vals, list):
+                    continue
+                for v in vals:
+                    c["infra"].add(f"DNS {rtype}: {str(v)[:220]}")
+        esc = datos.get("escaneo_seguridad") or {}
+        if isinstance(esc, dict):
+            for row in esc.get("nvd_cve_por_huella_web") or []:
+                if isinstance(row, dict) and row.get("cve"):
+                    c["cves"].add(str(row["cve"]).upper())
+
     def correlacionar(self, datos: Any) -> Dict[str, Any]:
         c: Dict[str, Set[str]] = {
             "emails": set(),
@@ -1513,6 +1699,9 @@ class OSINTv5:
             "registro_publico": set(),
             "infra": set(),
         }
+        if isinstance(datos, dict):
+            self._correlacion_desde_extraccion_plana(datos.get("extraccion_profunda"), c)
+            self._correlacion_tls_dns_escaneo(datos, c)
 
         def desde_ip_bloque(b: Any) -> None:
             if not isinstance(b, dict):
@@ -1586,6 +1775,13 @@ class OSINTv5:
             for r in g.get("redes") or []:
                 if isinstance(r, str) and r.startswith("http"):
                     c["redes_sociales"].add(r)
+            for n in g.get("nombres") or []:
+                if isinstance(n, str) and len(n.strip()) > 3:
+                    c["infra"].add(f"nombre_o_texto: {n.strip()[:220]}")
+            for u in g.get("documentos") or []:
+                if isinstance(u, str) and u.startswith("http"):
+                    c["redes_sociales"].add(u)
+                    c["infra"].add(f"documento: {u[:200]}")
 
         def extract(obj: Any) -> None:
             if isinstance(obj, dict):
@@ -1596,6 +1792,8 @@ class OSINTv5:
                         desde_rdap(v)
                     elif k == "whois":
                         desde_whois(v)
+                        if isinstance(v, dict) and isinstance(v.get("rdap"), dict):
+                            desde_rdap(v["rdap"])
                     elif k == "shodan":
                         desde_shodan(v)
                     elif k == "google":
@@ -1718,6 +1916,12 @@ class OSINTv5:
                 if t:
                     res = {"objetivo": t, "tipo": "telefono", "timestamp": datetime.now().isoformat(), "datos": {}}
                     res["datos"]["google"] = self.google_dorks(t, "telefono")
+                    opt_url = input("  URL publica donde aparece el telefono (opcional, Enter omitir): ").strip()
+                    if opt_url.startswith("http"):
+                        ex = self.analizar_url_avanzado(opt_url)
+                        res["datos"]["pagina_opcional_telefono"] = ex
+                        g_pg = self._finalize_google_res(self._construir_google_desde_informe_sets({"extraccion_profunda": ex}))
+                        res["datos"]["google"] = OSINTv5._merge_google_publico(res["datos"].get("google"), g_pg)
             elif op == "4":
                 d = input("URL o Dominio: ").strip()
                 if d:
@@ -1743,10 +1947,12 @@ class OSINTv5:
                 org = input("Organizacion o Gobierno (o URL/dominio): ").strip()
                 if org:
                     res = {"objetivo": org, "tipo": "organizacion", "timestamp": datetime.now().isoformat(), "datos": {}}
-                    res["datos"]["google"] = self.google_dorks(org, "organizacion")
+                    g_dorks = self.google_dorks(org, "organizacion")
+                    res["datos"]["google"] = g_dorks
                     if self._parece_dominio_o_url(org):
                         url_org, host_org = self._normalizar_url_y_host(org)
                         res["datos"].update(self.informe_superficie_web(url_org, host_org))
+                        res["datos"]["google"] = OSINTv5._merge_google_publico(g_dorks, res["datos"].get("google"))
             elif op == "8":
                 print("\n[*] Saliendo...\n")
                 break

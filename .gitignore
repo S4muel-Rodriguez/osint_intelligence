@@ -1,14 +1,12 @@
-# Solo versionar: osint_intelligence_v5.py, README_OSINT_v5.md, requirements-osint.txt
-# (más este .gitignore para mantener la regla).
+# Solo versionar el script y el README en GitHub (resto ignorado).
 /*
 !.gitignore
 !/osint_intelligence_v5.py
 !/README_OSINT_v5.md
-!/requirements-osint.txt
 
-# Artefactos locales habituales (por si /* no aplica a carpetas ya trackeadas)
 .venv/
 __pycache__/
 *.py[cod]
 *.json
+requirements-osint.txt
 run_osint.bat
