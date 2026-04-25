@@ -1,6 +1,0 @@
-# Ignorar todos los archivos y directorios dentro de .venv/
-.venv/*
-
-# Opcional: Asegurarse de no incluir .venv/ en el repositorio
-!.venv/
-
