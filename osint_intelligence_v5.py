@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OSINT INTELLIGENCE GATHERING SYSTEM v5.2
+OSINT INTELLIGENCE GATHERING SYSTEM v5.3
 Fuentes públicas y APIs autorizadas: DNS (DoH), TLS, cabeceras HTTP, HIBP, crt.sh, etc.
 El JSON final agrega huella técnica y correlación; no accede a cuentas privadas ni credenciales.
 """
@@ -30,6 +30,7 @@ class OSINTv5:
     DOH_URL = "https://cloudflare-dns.com/dns-query"
 
     def __init__(self) -> None:
+        self._rdap_bootstrap_cache: Optional[List[Tuple[List[str], List[str]]]] = None
         self.s = requests.Session()
         self.s.headers = {
             "User-Agent": (
@@ -59,7 +60,7 @@ class OSINTv5:
 
     def _meta_base(self) -> Dict[str, Any]:
         return {
-            "version": "5.2",
+            "version": "5.3",
             "generado_utc": datetime.now(timezone.utc).isoformat(),
             "aviso_legal": DISCLAIMER_ES,
             "hibp_api_configurada": bool(os.environ.get("HIBP_API_KEY", "").strip()),
@@ -105,6 +106,131 @@ class OSINTv5:
             h = urlparse(t).hostname
             return h
         return t.replace("www.", "").split("/")[0] or None
+
+    @staticmethod
+    def _dominio_para_whois(host: str) -> str:
+        h = (host or "").strip().lower().strip(".")
+        if h.startswith("www."):
+            h = h[4:]
+        return h.split("/")[0]
+
+    def _rdap_bootstrap_services(self) -> List[Tuple[List[str], List[str]]]:
+        if self._rdap_bootstrap_cache is not None:
+            return self._rdap_bootstrap_cache
+        out: List[Tuple[List[str], List[str]]] = []
+        try:
+            r = self.s.get("https://data.iana.org/rdap/dns.json", timeout=25)
+            if r.status_code != 200:
+                self._rdap_bootstrap_cache = []
+                return []
+            for svc in r.json().get("services") or []:
+                if isinstance(svc, list) and len(svc) >= 2 and isinstance(svc[0], list) and isinstance(svc[1], list):
+                    tlds = [str(x).lower() for x in svc[0]]
+                    urls = [str(x) for x in svc[1]]
+                    out.append((tlds, urls))
+        except Exception:
+            pass
+        self._rdap_bootstrap_cache = out
+        return out
+
+    def _rdap_urls_for_registered_domain(self, domain: str) -> List[str]:
+        d = self._dominio_para_whois(domain)
+        if not d:
+            return []
+        labels = d.split(".")
+        best_urls: List[str] = []
+        best_len = -1
+        for i in range(len(labels)):
+            suffix = ".".join(labels[i:])
+            for tlds, bases in self._rdap_bootstrap_services():
+                if suffix in tlds:
+                    if len(suffix) > best_len:
+                        best_len = len(suffix)
+                        best_urls = bases
+        urls: List[str] = []
+        for b in best_urls:
+            b = str(b).rstrip("/")
+            urls.append(f"{b}/domain/{quote(d, safe='')}")
+        return urls
+
+    @staticmethod
+    def _vcard_fn_org(vcard: Any) -> Tuple[str, str]:
+        fn, org = "", ""
+        if not isinstance(vcard, list) or len(vcard) < 2:
+            return fn, org
+        for item in vcard[1:]:
+            if not isinstance(item, list) or len(item) < 4:
+                continue
+            tag = str(item[0]).lower()
+            val = item[3]
+            if tag == "fn" and isinstance(val, str):
+                fn = val.strip()
+            if tag == "org":
+                if isinstance(val, str):
+                    org = val.strip()
+                elif isinstance(val, list) and val and isinstance(val[0], str):
+                    org = val[0].strip()
+        return fn, org
+
+    def rdap_domain(self, domain: str) -> Dict[str, Any]:
+        dom = self._dominio_para_whois(domain)
+        res: Dict[str, Any] = {
+            "dominio_consulta": dom,
+            "urls_intentadas": [],
+            "registrante": "",
+            "registrar": "",
+            "emails": [],
+            "creacion": "",
+            "estados": [],
+            "nombres_seguro": [],
+            "exito": False,
+            "error": None,
+        }
+        headers = {"Accept": "application/rdap+json, application/json;q=0.9,*/*;q=0.8"}
+        for url in self._rdap_urls_for_registered_domain(dom):
+            res["urls_intentadas"].append(url)
+            try:
+                r = self.s.get(url, timeout=20, headers=headers)
+                if r.status_code == 404:
+                    continue
+                if r.status_code != 200:
+                    res["error"] = f"HTTP {r.status_code}"
+                    continue
+                data = r.json()
+                res["exito"] = True
+                for ev in data.get("events") or []:
+                    if (ev.get("eventAction") or "").lower() == "registration":
+                        res["creacion"] = (ev.get("eventDate") or "")[:10]
+                for ent in data.get("entities") or []:
+                    roles = [str(x).lower() for x in (ent.get("roles") or [])]
+                    vcard = ent.get("vcardArray")
+                    name, org = self._vcard_fn_org(vcard)
+                    if "registrant" in roles and (name or org):
+                        res["registrante"] = name or org
+                    if "registrar" in roles and (name or org):
+                        res["registrar"] = name or org
+                    for el in ent.get("vcardArray") or []:
+                        if isinstance(el, list) and len(el) > 3 and str(el[0]).lower() == "email":
+                            em = el[3]
+                            if isinstance(em, str) and "@" in em:
+                                res["emails"].append(em.strip())
+                for st in data.get("status") or []:
+                    if isinstance(st, str):
+                        res["estados"].append(st)
+                for ns in data.get("nameservers") or []:
+                    ldh = (ns.get("ldhName") if isinstance(ns, dict) else None) or ""
+                    if ldh:
+                        res["nombres_seguro"].append(ldh)
+                res["emails"] = sorted(set(res["emails"]))[:8]
+                res["estados"] = res["estados"][:12]
+                res["nombres_seguro"] = sorted(set(res["nombres_seguro"]))[:12]
+                print(f"  [+] RDAP: {url} (registrante/registrar según RDAP)")
+                return res
+            except Exception as ex:
+                res["error"] = str(ex)
+        if not res["exito"]:
+            print(f"  [-] RDAP sin datos útiles para {dom}")
+        return res
 
     # ===== DNS (DoH, datos reales sin librerías extra) =====
     def dns_over_https(self, domain: str, types: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -197,11 +323,16 @@ class OSINTv5:
         print(f"\n  [*] Extracción (HTML + cabeceras + JSON-LD): {url}")
         resultado: Dict[str, Any] = {
             "tecnologias": set(),
+            "librerias_detectadas": set(),
             "ubicaciones": set(),
             "redes_sociales": set(),
             "emails": set(),
             "telefonos": set(),
             "bio_extraida": "",
+            "titulo_pagina": "",
+            "og_title": "",
+            "og_url": "",
+            "canonical": "",
             "cabeceras_http": {},
             "url_final": url,
             "codigo_http": None,
@@ -212,6 +343,9 @@ class OSINTv5:
             resultado["url_final"] = r.url
             for k, v in r.headers.items():
                 resultado["cabeceras_http"][k] = v
+            host_parsed = (urlparse(r.url).hostname or "").lower()
+            if host_parsed.endswith("github.io"):
+                resultado["tecnologias"].add("GitHub Pages")
             if r.status_code != 200:
                 return self._sets_to_lists(resultado)
 
@@ -225,7 +359,33 @@ class OSINTv5:
                 techs.append("React")
             if "next.js" in html.lower():
                 techs.append("Next.js")
+            if "nuxt" in html.lower():
+                techs.append("Nuxt")
+            if "vite" in html.lower():
+                techs.append("Vite")
+            if "gatsby" in html.lower():
+                techs.append("Gatsby")
+            if "vue.js" in html.lower() or "/vue." in html.lower():
+                techs.append("Vue")
             resultado["tecnologias"].update(techs)
+            tit = re.search(r"<title[^>]*>([^<]{1,400})</title>", html, re.I | re.DOTALL)
+            if tit:
+                resultado["titulo_pagina"] = re.sub(r"\s+", " ", tit.group(1)).strip()[:400]
+            og_t = re.search(r'property="og:title"\s+content="([^"]*)"', html, re.I)
+            if og_t:
+                resultado["og_title"] = og_t.group(1)[:400]
+            og_u = re.search(r'property="og:url"\s+content="([^"]*)"', html, re.I)
+            if og_u:
+                resultado["og_url"] = og_u.group(1)[:500]
+            can = re.search(r'rel="canonical"\s+href="([^"]+)"', html, re.I)
+            if can:
+                resultado["canonical"] = can.group(1)[:500]
+            for jq in set(re.findall(r"jquery[/-]?(\d+\.\d+\.\d+|\d+\.\d+)", html, re.I)):
+                resultado["librerias_detectadas"].add(f"jQuery {jq}")
+            if re.search(r"bootstrap(?:\.min)?\.(?:js|css)", html, re.I):
+                resultado["librerias_detectadas"].add("Bootstrap (referencia en HTML)")
+            if re.search(r"cdn\.jsdelivr\.net|unpkg\.com|cdnjs", html, re.I):
+                resultado["librerias_detectadas"].add("CDN público (jsdelivr/unpkg/cdnjs)")
 
             bio = re.search(r'<meta name="description" content="(.*?)"', html, re.IGNORECASE)
             if not bio:
@@ -252,18 +412,28 @@ class OSINTv5:
                 "x.com/",
                 "instagram.com/",
                 "linkedin.com/in/",
+                "linkedin.com/company/",
                 "youtube.com/@",
+                "youtube.com/c/",
                 "tiktok.com/@",
                 "linktr.ee/",
+                "behance.net/",
+                "dribbble.com/",
             ]
             urls_en_pagina = re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', html)
             for u in urls_en_pagina:
                 u_clean = u.split("?")[0].split('"')[0].split("'")[0].rstrip("/")
                 if any(u_clean.lower().endswith(ext) for ext in [".js", ".css", ".webp", ".jpg", ".png", ".ico", ".svg", ".json"]):
                     continue
-                if any(p in u_clean.lower() for p in social_patterns):
+                ul = u_clean.lower()
+                if "github.com" in ul and "gist.github.com" not in ul and "raw.githubusercontent.com" not in ul:
+                    if re.search(r"github\.com/[^/?#]+/[^/?#]+", u_clean) or re.search(
+                        r"github\.com/[^/?#]+/?$", u_clean
+                    ):
+                        resultado["redes_sociales"].add(u_clean)
+                if any(p in ul for p in social_patterns):
                     if not any(
-                        x in u_clean.lower()
+                        x in ul
                         for x in ["/p/", "/reels/", "/tv/", "/tags/", "/explore/", "/static/", "/rsrc.php/"]
                     ):
                         resultado["redes_sociales"].add(u_clean)
@@ -589,6 +759,92 @@ class OSINTv5:
             out["error"] = str(ex)
         return out
 
+    def nvd_keyword_search(self, keyword: str, results_per_page: int = 5) -> List[Dict[str, Any]]:
+        kw = re.sub(r"[^\w\s.\-]", " ", (keyword or "").strip())[:100].strip()
+        if len(kw) < 2:
+            return []
+        rows: List[Dict[str, Any]] = []
+        try:
+            r = self.s.get(
+                "https://services.nvd.nist.gov/rest/json/cves/2.0",
+                params={"keywordSearch": kw, "resultsPerPage": min(results_per_page, 10)},
+                timeout=28,
+            )
+            if r.status_code != 200:
+                return rows
+            for vuln in (r.json().get("vulnerabilities") or [])[:results_per_page]:
+                c = (vuln.get("cve") or {}) if isinstance(vuln, dict) else {}
+                cid = c.get("id") or ""
+                desc = ""
+                for d in c.get("descriptions") or []:
+                    if d.get("lang") == "en":
+                        desc = (d.get("value") or "")[:400]
+                        break
+                pub = c.get("published", "")[:10]
+                metrics = c.get("metrics") or {}
+                score = None
+                for key in ("cvssMetricV31", "cvssMetricV30"):
+                    lst = metrics.get(key) or []
+                    if lst:
+                        sc = (lst[0].get("cvssData") or {}).get("baseScore")
+                        if sc is not None:
+                            score = float(sc)
+                        break
+                rows.append(
+                    {
+                        "cve": cid,
+                        "descripcion_corta": desc,
+                        "publicado": pub,
+                        "cvss_base": score,
+                        "palabra_clave": kw,
+                        "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio.",
+                    }
+                )
+        except Exception:
+            pass
+        return rows
+
+    def _enriquecer_shodan_con_huella_web(
+        self, shodan: Dict[str, Any], extraccion: Dict[str, Any], host: str
+    ) -> None:
+        if not isinstance(shodan, dict):
+            return
+        kws: List[str] = []
+        cab = extraccion.get("cabeceras_http") or {}
+        if isinstance(cab, dict):
+            srv = str(cab.get("Server") or cab.get("server") or "").strip()
+            if srv:
+                kws.append(re.split(r"[/\s]+", srv)[0])
+            xp = str(cab.get("X-Powered-By") or "").strip()
+            if xp:
+                kws.append(xp.split(",")[0].strip())
+        for t in list(extraccion.get("tecnologias") or []) + list(extraccion.get("librerias_detectadas") or []):
+            if t:
+                kws.append(str(t))
+        if host.lower().endswith("github.io"):
+            kws.append("GitHub Pages static hosting")
+        seen: Set[str] = set()
+        ordered: List[str] = []
+        for k in kws:
+            kl = k.lower()
+            if len(k) > 1 and kl not in seen:
+                seen.add(kl)
+                ordered.append(k)
+        merged: Dict[str, Dict[str, Any]] = {}
+        for i, kw in enumerate(ordered[:3]):
+            if i:
+                time.sleep(6.6)
+            for row in self.nvd_keyword_search(kw, 4):
+                cid = (row.get("cve") or "").upper()
+                if cid.startswith("CVE-") and cid not in merged:
+                    merged[cid] = row
+        shodan["nvd_cve_por_huella_web"] = list(merged.values())[:15]
+        shodan["nvd_huella_keywords_usados"] = ordered[:5]
+        shodan["nvd_huella_notas"] = (
+            "CVE listados por búsqueda de palabra clave en NVD a partir de cabeceras/tecnologías del HTML; "
+            "no confirman que el sitio ejecute una versión vulnerable."
+        )
+
     def mozilla_observatory_scan(self, host: str) -> Dict[str, Any]:
         print(f"\n  [*] Mozilla HTTP Observatory: {host}")
         res: Dict[str, Any] = {
@@ -735,14 +991,15 @@ class OSINTv5:
         cves_detalle = shodan_block.get("cves_detalle_nvd") or []
         bloque: Dict[str, Any] = {
             "metodologia": (
-                "Combinación de cabeceras HTTP reales, security.txt, Mozilla Observatory (si responde) "
-                "y CVEs sugeridos por Shodan InternetDB para la IP. "
-                "No sustituye pentest ni escaneo autenticado; no se afirma parche aplicado por CVE sin evidencia de versión."
+                "Cabeceras HTTP reales, security.txt, Mozilla Observatory (si responde), "
+                "CVEs de Shodan InternetDB (si la IP expone huella con CVE) y CVEs de referencia NVD "
+                "por palabras clave deducidas del HTML/cabeceras (no confirman versión vulnerable en el origen)."
             ),
             "observatory_mozilla": self.mozilla_observatory_scan(host),
             "security_txt": self.security_txt_publico(host),
             "cabeceras_http": self.analisis_cabeceras_seguridad(url),
             "cves_desde_shodan_detalle_nvd": cves_detalle,
+            "nvd_cve_por_huella_web": shodan_block.get("nvd_cve_por_huella_web") or [],
             "resumen_cve_por_host": (
                 "Los CVE de Shodan son candidatos a revisar contra el software y versiones reales detrás de los puertos abiertos."
             ),
@@ -763,7 +1020,8 @@ class OSINTv5:
         ips = out["ip"].get("ips") or []
         if ips:
             sh = self.shodan_host_enriquecido(ips[0])
-            out["shodan"] = sh
+        self._enriquecer_shodan_con_huella_web(sh, out["extraccion_profunda"], host)
+        out["shodan"] = sh
         out["escaneo_seguridad"] = self.escaneo_hallazgos_seguridad(host, url, sh)
         return out
 
@@ -930,6 +1188,26 @@ class OSINTv5:
             host = urlparse(url).hostname or ""
         return url, host
 
+    def _enriquecer_google_con_duckduckgo(
+        self, res: Dict[str, Any], dorks: List[str], social_ps: List[str]
+    ) -> None:
+        print("\n  [*] Complemento DuckDuckGo (cuando Google devuelve poco)...")
+        for dork in dorks[:7]:
+            try:
+                for u in self.duckduckgo_html_urls(dork, limit=14):
+                    if "google." in u.lower():
+                        continue
+                    uc = u.split("?")[0].rstrip("/")
+                    if any(p in uc.lower() for p in social_ps):
+                        res["redes"].add(uc)
+                    elif ".pdf" in uc.lower() or ".xls" in uc.lower():
+                        res["documentos"].append(uc)
+                    elif len(res["urls"]) < 24:
+                        res["urls"].append(uc)
+                time.sleep(1.1)
+            except Exception:
+                pass
+
     # ===== Google (fragil; solo heurística) =====
     def google_dorks(self, objetivo: str, tipo: str = "nombre") -> Dict[str, Any]:
         print(f"\n  [*] Google Dorks (heurístico): {objetivo}")
@@ -973,6 +1251,8 @@ class OSINTv5:
                 f'site:opencorporates.com "{objetivo}"',
                 f'site:linkedin.com/company "{objetivo}"',
                 f'"{objetivo}" filetype:pdf',
+                f'"{objetivo}" site:argentina.gob.ar OR site:gob.ar',
+                f'"{objetivo}" site:wikipedia.org',
             ]
 
         social_ps = [
@@ -981,6 +1261,7 @@ class OSINTv5:
             "x.com/",
             "instagram.com/",
             "linkedin.com/in/",
+            "linkedin.com/company/",
             "tiktok.com/@",
             "youtube.com/@",
             "github.com/",
@@ -1031,6 +1312,9 @@ class OSINTv5:
             except Exception:
                 pass
 
+        self._enriquecer_google_con_duckduckgo(res, dorks, social_ps)
+
+        res["urls"] = list(dict.fromkeys([x for x in res["urls"] if x]))[:24]
         res["emails"] = sorted(res["emails"])[:20]
         res["redes"] = sorted(res["redes"])[:15]
         res["ubicaciones"] = sorted(res["ubicaciones"])
@@ -1096,18 +1380,39 @@ class OSINTv5:
         return res
 
     def whois_dominio(self, dominio: str) -> Dict[str, Any]:
-        print(f"\n  [*] WHOIS (scraping whois.com): {dominio}")
-        res = {"dominio": dominio, "registrante": "", "email": "", "creacion": ""}
+        q = self._dominio_para_whois(dominio)
+        print(f"\n  [*] WHOIS/RDAP: {q}")
+        res: Dict[str, Any] = {
+            "dominio_consulta": q,
+            "registrante": "",
+            "email": "",
+            "creacion": "",
+            "rdap": {},
+            "whois_com_scrape": {},
+        }
+        res["rdap"] = self.rdap_domain(q)
+        if res["rdap"].get("registrante"):
+            res["registrante"] = res["rdap"]["registrante"]
+        if res["rdap"].get("emails"):
+            res["email"] = res["rdap"]["emails"][0]
+        if res["rdap"].get("creacion"):
+            res["creacion"] = res["rdap"]["creacion"]
         try:
-            r = self.s.get(f"https://www.whois.com/whois/{dominio}", timeout=10)
+            r = self.s.get(f"https://www.whois.com/whois/{quote(q)}", timeout=12)
+            scrape: Dict[str, Any] = {"ok": r.status_code == 200}
             if r.status_code == 200:
                 emails = self.email_re.findall(r.text)
-                res["email"] = emails[0] if emails else ""
+                scrape["emails_en_pagina"] = emails[:5]
                 reg = re.search(r"Registrant\s+(?:Name|Organization):\s*(.+)", r.text, re.I)
                 if reg:
-                    res["registrante"] = reg.group(1).strip()
-        except Exception:
-            pass
+                    scrape["registrante"] = reg.group(1).strip()
+                if not res["registrante"] and scrape.get("registrante"):
+                    res["registrante"] = scrape["registrante"]
+                if not res["email"] and scrape.get("emails_en_pagina"):
+                    res["email"] = scrape["emails_en_pagina"][0]
+            res["whois_com_scrape"] = scrape
+        except Exception as ex:
+            res["whois_com_scrape"] = {"error": str(ex)}
         return res
 
     def subdominios(self, dominio: str) -> List[str]:
@@ -1159,6 +1464,8 @@ class OSINTv5:
                             c["redes_sociales"].update(v.keys())
                         elif isinstance(v, list):
                             c["redes_sociales"].update(str(x) for x in v)
+                    if k in ("og_url", "canonical") and isinstance(v, str) and v.startswith("http"):
+                        c["redes_sociales"].add(v)
                     for val in v if isinstance(v, list) else [v]:
                         if isinstance(val, (dict, list)):
                             extract(val)
@@ -1206,7 +1513,7 @@ class OSINTv5:
     def menu(self) -> None:
         while True:
             print("\n" + "=" * 65)
-            print("  OSINT INTELLIGENCE SYSTEM v5.2")
+            print("  OSINT INTELLIGENCE SYSTEM v5.3")
             print("  OSINT público | Filtraciones multi-fuente | Org/URL + escaneo superficie")
             print("=" * 65)
             print("\n  1. Buscar por EMAIL")

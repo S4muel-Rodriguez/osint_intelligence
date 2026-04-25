@@ -1,0 +1,464 @@
+{
+  "objetivo": "https://s4muel-rodriguez.github.io/website-portfolio/",
+  "tipo": "url",
+  "timestamp": "2026-04-24T22:13:59.238993",
+  "datos": {
+    "extraccion_profunda": {
+      "tecnologias": [
+        "GitHub Pages",
+        "React"
+      ],
+      "librerias_detectadas": [],
+      "ubicaciones": [],
+      "redes_sociales": [
+        "https://app.hackthebox.com/machines",
+        "https://ctf.hackthebox.com/events/live",
+        "https://github.com/S4muel-Rodriguez",
+        "https://github.com/S4muel-Rodriguez/Proyectback3",
+        "https://github.com/S4muel-Rodriguez/ProyectoIA-Web-Pentest",
+        "https://www.linkedin.com/in/samu-rodr%C3%ADguez-77b24325a"
+      ],
+      "emails": [
+        "samurodriguez565@gmail.com"
+      ],
+      "telefonos": [],
+      "bio_extraida": "",
+      "titulo_pagina": "Samuel Rodríguez | Cybersecurity Analyst (SOC / Pentesting)",
+      "og_title": "",
+      "og_url": "",
+      "canonical": "",
+      "cabeceras_http": {
+        "Connection": "keep-alive",
+        "Content-Length": "22369",
+        "Server": "GitHub.com",
+        "Content-Type": "text/html; charset=utf-8",
+        "Last-Modified": "Tue, 10 Mar 2026 02:54:42 GMT",
+        "Access-Control-Allow-Origin": "*",
+        "Strict-Transport-Security": "max-age=31556952",
+        "ETag": "\"69af87f2-5761\"",
+        "expires": "Sat, 25 Apr 2026 00:35:08 GMT",
+        "Cache-Control": "max-age=600",
+        "x-proxy-cache": "MISS",
+        "X-GitHub-Request-Id": "AC9A:7495D:126139:138868:69EC09E3",
+        "Accept-Ranges": "bytes",
+        "Age": "0",
+        "Date": "Sat, 25 Apr 2026 01:13:23 GMT",
+        "Via": "1.1 varnish",
+        "X-Served-By": "cache-eze2230023-EZE",
+        "X-Cache": "HIT",
+        "X-Cache-Hits": "0",
+        "X-Timer": "S1777079604.814333,VS0,VE156",
+        "Vary": "Accept-Encoding",
+        "X-Fastly-Request-ID": "310baf152bf8b196bfae71e4da49432ec8c20bc0"
+      },
+      "url_final": "https://s4muel-rodriguez.github.io/website-portfolio/",
+      "codigo_http": 200
+    },
+    "ip": {
+      "ips": [
+        "185.199.109.153",
+        "185.199.108.153",
+        "2606:50c0:8002::153",
+        "2606:50c0:8003::153",
+        "2606:50c0:8001::153",
+        "2606:50c0:8000::153",
+        "185.199.111.153",
+        "185.199.110.153"
+      ],
+      "whois_data": {},
+      "dns_records": {},
+      "asn": "AS54113 Fastly, Inc.",
+      "org": "GitHub, Inc",
+      "pais": "United States",
+      "ciudad": "San Francisco",
+      "isp": "Fastly, Inc.",
+      "ptr_por_ip": [
+        {
+          "ip": "185.199.109.153",
+          "ptr": "cdn-185-199-109-153.github.com",
+          "alias": []
+        },
+        {
+          "ip": "185.199.108.153",
+          "ptr": "cdn-185-199-108-153.github.com",
+          "alias": []
+        },
+        {
+          "ip": "2606:50c0:8002::153",
+          "ptr": null,
+          "error": "[Errno 1] Unknown host"
+        }
+      ]
+    },
+    "whois": {
+      "dominio_consulta": "s4muel-rodriguez.github.io",
+      "registrante": "GitHub, Inc.",
+      "email": "abusecomplaints@markmonitor.com",
+      "creacion": "",
+      "rdap": {
+        "dominio_consulta": "s4muel-rodriguez.github.io",
+        "urls_intentadas": [],
+        "registrante": "",
+        "registrar": "",
+        "emails": [],
+        "creacion": "",
+        "estados": [],
+        "nombres_seguro": [],
+        "exito": false,
+        "error": null
+      },
+      "whois_com_scrape": {
+        "ok": true,
+        "emails_en_pagina": [
+          "abusecomplaints@markmonitor.com"
+        ],
+        "registrante": "GitHub, Inc."
+      }
+    },
+    "subdominios": [],
+    "dns_doh": {
+      "dominio": "s4muel-rodriguez.github.io",
+      "registros": {
+        "A": [
+          "185.199.108.153",
+          "185.199.109.153",
+          "185.199.110.153",
+          "185.199.111.153"
+        ],
+        "AAAA": [
+          "2606:50c0:8000::153",
+          "2606:50c0:8001::153",
+          "2606:50c0:8002::153",
+          "2606:50c0:8003::153"
+        ]
+      }
+    },
+    "tls_certificado_publico": {
+      "host": "s4muel-rodriguez.github.io",
+      "puerto": 443,
+      "subject": null,
+      "issuer": null,
+      "sans": [
+        "*.github.com",
+        "*.github.io",
+        "*.githubusercontent.com",
+        "github.com",
+        "github.io",
+        "githubusercontent.com"
+      ],
+      "valido_desde": "Apr  6 23:32:36 2026 GMT",
+      "valido_hasta": "Jul  5 23:32:35 2026 GMT"
+    },
+    "shodan": {
+      "ip": "185.199.109.153",
+      "puertos": [
+        80,
+        443
+      ],
+      "servicios": [
+        "cpe:/a:fastly:fastly",
+        "cpe:/a:varnish-software:varnish_cache"
+      ],
+      "vulns": [],
+      "os": "",
+      "hostname": "nixons.uk.com, www.nixons.uk.com, cdn-185-199-109-153.github.com",
+      "cves_detalle_nvd": [],
+      "cves_total_shodan": 0,
+      "cves_analizados_nvd": 0,
+      "nota_shodan_cve": "InternetDB asocia CVE a la huella del servicio expuesto; no prueba versión ni parche aplicado en este host.",
+      "nvd_cve_por_huella_web": [
+        {
+          "cve": "CVE-2017-16613",
+          "descripcion_corta": "An issue was discovered in middleware.py in OpenStack Swauth through 1.2.0 when used with OpenStack Swift through 2.15.1. The Swift object store and proxy server are saving (unhashed) tokens retrieved from the Swauth middleware authentication mechanism to a log file as part of a GET URI. This allows attackers to bypass authentication by inserting a token into an X-Auth-Token header of a new reques",
+          "publicado": "2017-11-21",
+          "cvss_base": 9.8,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7664",
+          "descripcion_corta": "In all versions of the package github.com/unknwon/cae/zip, the ExtractTo function doesn't securely escape file paths in zip archives which include leading or non-leading \"..\". This allows an attacker to add or replace files system-wide.",
+          "publicado": "2020-06-23",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7668",
+          "descripcion_corta": "In all versions of the package github.com/unknwon/cae/tz, the ExtractTo function doesn't securely escape file paths in zip archives which include leading or non-leading \"..\". This allows an attacker to add or replace files system-wide.",
+          "publicado": "2020-06-23",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7667",
+          "descripcion_corta": "In package github.com/sassoftware/go-rpmutils/cpio before version 0.1.0, the CPIO extraction functionality doesn't sanitize the paths of the archived files for leading and non-leading \"..\" which leads in file extraction outside of the current directory. Note: the fixing commit was applied to all affected versions which were re-released.",
+          "publicado": "2020-06-24",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-14001",
+          "descripcion_corta": "The kramdown gem before 2.3.0 for Ruby processes the template option inside Kramdown documents by default, which allows unintended read access (such as template=\"/etc/passwd\") or unintended embedded Ruby code execution (such as a string that begins with template=\"string://<%= `). NOTE: kramdown is used in Jekyll, GitLab Pages, GitHub Pages, and Thredded Forum.",
+          "publicado": "2020-07-17",
+          "cvss_base": 9.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-10518",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration of the underlying parsers used by GitHub Pages were not sufficiently restricted and made it possible to execute commands on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker would need permission to",
+          "publicado": "2020-08-27",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-10519",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration of the underlying parsers used by GitHub Pages were not sufficiently restricted and made it possible to execute commands on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker would need permission to",
+          "publicado": "2021-03-03",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2021-22864",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration options used by GitHub Pages were not sufficiently restricted and made it possible to override environment variables leading to code execution on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker wo",
+          "publicado": "2021-03-23",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-1999-0454",
+          "descripcion_corta": "A remote attacker can sometimes identify the operating system of a host based on how it reacts to some IP or ICMP packets, using a tool such as nmap or queso.",
+          "publicado": "1999-01-01",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2002-0956",
+          "descripcion_corta": "BlackICE Agent 3.1.eal does not always reactivate after a system standby, which could allow remote attackers and local users to bypass intended firewall restrictions.",
+          "publicado": "2002-10-04",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2006-4073",
+          "descripcion_corta": "Multiple PHP remote file inclusion vulnerabilities in Fabian Hainz phpCC Beta 4.2 allow remote attackers to execute arbitrary PHP code via a URL in the base_dir parameter to (1) login.php, (2) reactivate.php, or (3) register.php.",
+          "publicado": "2006-08-11",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2007-1724",
+          "descripcion_corta": "Unspecified vulnerability in ReactOS 0.3.1 has unknown impact and attack vectors, related to a fix for \"dozens of win32k bugs and failures,\" in which the fix itself introduces a vulnerability, possibly related to user-mode and kernel-mode copy failures.",
+          "publicado": "2007-03-28",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        }
+      ],
+      "nvd_huella_keywords_usados": [
+        "GitHub.com",
+        "GitHub Pages",
+        "React",
+        "GitHub Pages static hosting"
+      ],
+      "nvd_huella_notas": "CVE listados por búsqueda de palabra clave en NVD a partir de cabeceras/tecnologías del HTML; no confirman que el sitio ejecute una versión vulnerable."
+    },
+    "escaneo_seguridad": {
+      "metodologia": "Cabeceras HTTP reales, security.txt, Mozilla Observatory (si responde), CVEs de Shodan InternetDB (si la IP expone huella con CVE) y CVEs de referencia NVD por palabras clave deducidas del HTML/cabeceras (no confirman versión vulnerable en el origen).",
+      "observatory_mozilla": {
+        "host": "s4muel-rodriguez.github.io",
+        "grado": null,
+        "puntuacion": null,
+        "estado": null,
+        "tests_pasados": null,
+        "tests_fallidos": null,
+        "error": "Observatory no respondió (502/timeout frecuentes; reintentar más tarde)."
+      },
+      "security_txt": {
+        "host": "s4muel-rodriguez.github.io",
+        "presente": false,
+        "url": null,
+        "vista_previa": ""
+      },
+      "cabeceras_http": {
+        "url_analizada": "https://s4muel-rodriguez.github.io/website-portfolio/",
+        "codigo": 200,
+        "cabeceras_relevantes": {
+          "strict-transport-security": "max-age=31556952"
+        },
+        "hallazgos": [
+          {
+            "tipo": "hardening",
+            "hallazgo": "Sin Content-Security-Policy",
+            "riesgo": "medio",
+            "recomendacion": "Añadir CSP acotado para reducir impacto de XSS."
+          },
+          {
+            "tipo": "hardening",
+            "hallazgo": "Sin X-Frame-Options ni frame-ancestors en CSP",
+            "riesgo": "bajo_medio",
+            "recomendacion": "Restringir clickjacking (DENY/SAMEORIGIN o frame-ancestors)."
+          },
+          {
+            "tipo": "hardening",
+            "hallazgo": "Sin X-Content-Type-Options: nosniff",
+            "riesgo": "bajo",
+            "recomendacion": "Enviar nosniff en respuestas."
+          }
+        ]
+      },
+      "cves_desde_shodan_detalle_nvd": [],
+      "nvd_cve_por_huella_web": [
+        {
+          "cve": "CVE-2017-16613",
+          "descripcion_corta": "An issue was discovered in middleware.py in OpenStack Swauth through 1.2.0 when used with OpenStack Swift through 2.15.1. The Swift object store and proxy server are saving (unhashed) tokens retrieved from the Swauth middleware authentication mechanism to a log file as part of a GET URI. This allows attackers to bypass authentication by inserting a token into an X-Auth-Token header of a new reques",
+          "publicado": "2017-11-21",
+          "cvss_base": 9.8,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7664",
+          "descripcion_corta": "In all versions of the package github.com/unknwon/cae/zip, the ExtractTo function doesn't securely escape file paths in zip archives which include leading or non-leading \"..\". This allows an attacker to add or replace files system-wide.",
+          "publicado": "2020-06-23",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7668",
+          "descripcion_corta": "In all versions of the package github.com/unknwon/cae/tz, the ExtractTo function doesn't securely escape file paths in zip archives which include leading or non-leading \"..\". This allows an attacker to add or replace files system-wide.",
+          "publicado": "2020-06-23",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-7667",
+          "descripcion_corta": "In package github.com/sassoftware/go-rpmutils/cpio before version 0.1.0, the CPIO extraction functionality doesn't sanitize the paths of the archived files for leading and non-leading \"..\" which leads in file extraction outside of the current directory. Note: the fixing commit was applied to all affected versions which were re-released.",
+          "publicado": "2020-06-24",
+          "cvss_base": 7.5,
+          "palabra_clave": "GitHub.com",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-14001",
+          "descripcion_corta": "The kramdown gem before 2.3.0 for Ruby processes the template option inside Kramdown documents by default, which allows unintended read access (such as template=\"/etc/passwd\") or unintended embedded Ruby code execution (such as a string that begins with template=\"string://<%= `). NOTE: kramdown is used in Jekyll, GitLab Pages, GitHub Pages, and Thredded Forum.",
+          "publicado": "2020-07-17",
+          "cvss_base": 9.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-10518",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration of the underlying parsers used by GitHub Pages were not sufficiently restricted and made it possible to execute commands on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker would need permission to",
+          "publicado": "2020-08-27",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2020-10519",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration of the underlying parsers used by GitHub Pages were not sufficiently restricted and made it possible to execute commands on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker would need permission to",
+          "publicado": "2021-03-03",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2021-22864",
+          "descripcion_corta": "A remote code execution vulnerability was identified in GitHub Enterprise Server that could be exploited when building a GitHub Pages site. User-controlled configuration options used by GitHub Pages were not sufficiently restricted and made it possible to override environment variables leading to code execution on the GitHub Enterprise Server instance. To exploit this vulnerability, an attacker wo",
+          "publicado": "2021-03-23",
+          "cvss_base": 8.8,
+          "palabra_clave": "GitHub Pages",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-1999-0454",
+          "descripcion_corta": "A remote attacker can sometimes identify the operating system of a host based on how it reacts to some IP or ICMP packets, using a tool such as nmap or queso.",
+          "publicado": "1999-01-01",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2002-0956",
+          "descripcion_corta": "BlackICE Agent 3.1.eal does not always reactivate after a system standby, which could allow remote attackers and local users to bypass intended firewall restrictions.",
+          "publicado": "2002-10-04",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2006-4073",
+          "descripcion_corta": "Multiple PHP remote file inclusion vulnerabilities in Fabian Hainz phpCC Beta 4.2 allow remote attackers to execute arbitrary PHP code via a URL in the base_dir parameter to (1) login.php, (2) reactivate.php, or (3) register.php.",
+          "publicado": "2006-08-11",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        },
+        {
+          "cve": "CVE-2007-1724",
+          "descripcion_corta": "Unspecified vulnerability in ReactOS 0.3.1 has unknown impact and attack vectors, related to a fix for \"dozens of win32k bugs and failures,\" in which the fix itself introduces a vulnerability, possibly related to user-mode and kernel-mode copy failures.",
+          "publicado": "2007-03-28",
+          "cvss_base": null,
+          "palabra_clave": "React",
+          "nota": "CVE asociado por búsqueda de palabra clave en NVD (huella web), no confirma producto vulnerable en este sitio."
+        }
+      ],
+      "resumen_cve_por_host": "Los CVE de Shodan son candidatos a revisar contra el software y versiones reales detrás de los puertos abiertos.",
+      "puertos_abiertos_internetdb": [
+        80,
+        443
+      ]
+    }
+  },
+  "correlacion": {
+    "emails": [
+      "abusecomplaints@markmonitor.com",
+      "samurodriguez565@gmail.com"
+    ],
+    "telefonos": [],
+    "ubicaciones": [
+      "San Francisco",
+      "United States"
+    ],
+    "redes_sociales": [
+      "https://app.hackthebox.com/machines",
+      "https://ctf.hackthebox.com/events/live",
+      "https://github.com/S4muel-Rodriguez",
+      "https://github.com/S4muel-Rodriguez/Proyectback3",
+      "https://github.com/S4muel-Rodriguez/ProyectoIA-Web-Pentest",
+      "https://www.linkedin.com/in/samu-rodr%C3%ADguez-77b24325a"
+    ],
+    "cves": [
+      "CVE-1999-0454",
+      "CVE-2002-0956",
+      "CVE-2006-4073",
+      "CVE-2007-1724",
+      "CVE-2017-16613",
+      "CVE-2020-10518",
+      "CVE-2020-10519",
+      "CVE-2020-14001",
+      "CVE-2020-7664",
+      "CVE-2020-7667",
+      "CVE-2020-7668",
+      "CVE-2021-22864"
+    ]
+  },
+  "meta": {
+    "version": "5.3",
+    "generado_utc": "2026-04-25T01:14:51.916108+00:00",
+    "aviso_legal": "Solo se agregan datos obtenidos de fuentes públicas o con APIs documentadas (p. ej. registros DNS, certificados TLS visibles, HIBP con clave propia). No se accede a contenidos privados de redes sociales, buzones ni sistemas protegidos.",
+    "hibp_api_configurada": false
+  }
+}
