@@ -77,18 +77,23 @@ datos (hibp, github, google, linkedin, etc.)
 ❌ Ingeniería social
 
 📈 MÉTRICAS
+
 Precisión: ~95%
 Tiempo: <30s
 Alta confiabilidad (fuentes verificadas)
+
 🛠️ REQUISITOS
 Python 3.6+
 requests
+
 🎯 CASOS DE USO
+
 Pentesting (recon)
 Investigación OSINT
 Due diligence
 Verificación de identidades
 Seguridad y monitoreo
+
 ⚡ COMANDOS
 python osint_intelligence_v5.py
 ls OSINT_*.json
