@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OSINT INTELLIGENCE GATHERING SYSTEM v5.3
+OSINT INTELLIGENCE GATHERING SYSTEM v5.4
 Fuentes públicas y APIs autorizadas: DNS (DoH), TLS, cabeceras HTTP, HIBP, crt.sh, etc.
 El JSON final agrega huella técnica y correlación; no accede a cuentas privadas ni credenciales.
 """
@@ -20,9 +20,9 @@ from urllib.parse import quote, unquote, urlparse
 import requests
 
 DISCLAIMER_ES = (
-    "Solo se agregan datos obtenidos de fuentes públicas o con APIs documentadas "
-    "(p. ej. registros DNS, certificados TLS visibles, HIBP con clave propia). "
-    "No se accede a contenidos privados de redes sociales, buzones ni sistemas protegidos."
+    "Solo datos de fuentes públicas o APIs documentadas (DNS, RDAP, TLS, ip-api, Shodan InternetDB, NVD). "
+    "Sin inferencias inventadas (p. ej. SO si InternetDB no lo publica). "
+    "OSINT ilegal o acceso no autorizado a datos privados queda fuera de alcance."
 )
 
 
@@ -60,7 +60,7 @@ class OSINTv5:
 
     def _meta_base(self) -> Dict[str, Any]:
         return {
-            "version": "5.3",
+            "version": "5.4",
             "generado_utc": datetime.now(timezone.utc).isoformat(),
             "aviso_legal": DISCLAIMER_ES,
             "hibp_api_configurada": bool(os.environ.get("HIBP_API_KEY", "").strip()),
@@ -485,13 +485,24 @@ class OSINTv5:
                 "Perú",
                 "USA",
             ]
+            visible = OSINTv5._html_texto_visible(html)
             for reg in regiones:
-                if re.search(r"\b" + re.escape(reg) + r"\b", html, re.IGNORECASE):
+                if re.search(r"\b" + re.escape(reg) + r"\b", visible, re.IGNORECASE):
                     resultado["ubicaciones"].add(reg)
         except Exception as e:
             print(f"  [-] Error Deep Scan: {e}")
 
         return self._sets_to_lists(resultado)
+
+    @staticmethod
+    def _html_texto_visible(html: str) -> str:
+        """Quita script/style para no marcar países/ciudades que solo aparecen en URLs de terceros."""
+        if not html:
+            return ""
+        s = re.sub(r"(?is)<script[^>]*>.*?</script>", " ", html)
+        s = re.sub(r"(?is)<style[^>]*>.*?</style>", " ", s)
+        s = re.sub(r"(?is)<noscript[^>]*>.*?</noscript>", " ", s)
+        return s
 
     @staticmethod
     def _sets_to_lists(resultado: Dict[str, Any]) -> Dict[str, Any]:
@@ -650,27 +661,101 @@ class OSINTv5:
         return res
 
     # ===== SHODAN InternetDB =====
-    def shodan_host(self, ip: str) -> Dict[str, Any]:
-        print(f"\n  [*] Shodan InternetDB: {ip}")
-        res: Dict[str, Any] = {"ip": ip, "puertos": [], "servicios": [], "vulns": [], "os": "", "hostname": ""}
-        try:
-            r = self.s.get(f"https://internetdb.shodan.io/{ip}", timeout=10)
-            if r.status_code == 200:
+    def shodan_internetdb_aggregate(self, ips: List[str]) -> Dict[str, Any]:
+        """InternetDB por cada IP resuelta: unión de puertos/CPE/CVE/hostnames (solo datos de la API)."""
+        orden: List[str] = []
+        for ip in ips or []:
+            if isinstance(ip, str) and ip and ip not in orden:
+                orden.append(ip)
+        orden = orden[:6]
+        print(f"\n  [*] Shodan InternetDB (agregado): {', '.join(orden) or '(sin IPs)'}")
+        res: Dict[str, Any] = {
+            "ip_primera": orden[0] if orden else "",
+            "ips_consultadas": orden,
+            "puertos": [],
+            "servicios": [],
+            "vulns": [],
+            "tags": [],
+            "os": "",
+            "hostname": "",
+            "por_ip": [],
+            "nota_os": (
+                "El campo `os` solo se rellena si InternetDB lo incluye en la respuesta JSON; "
+                "muchas IPs (CDN, GitHub Pages, proxies) no exponen SO aquí. No se infiere SO por heurística."
+            ),
+        }
+        puertos: Set[int] = set()
+        cpes: Set[str] = set()
+        vulns: List[str] = []
+        tags: Set[str] = set()
+        hostnames: Set[str] = set()
+        os_val = ""
+        for ip in orden:
+            fila: Dict[str, Any] = {"ip": ip}
+            try:
+                r = self.s.get(f"https://internetdb.shodan.io/{ip}", timeout=12)
+                fila["http"] = r.status_code
+                if r.status_code != 200:
+                    res["por_ip"].append(fila)
+                    continue
                 d = r.json()
-                res["puertos"] = d.get("ports", [])
-                res["servicios"] = d.get("cpes", [])
-                res["vulns"] = d.get("vulns", [])
-                res["hostname"] = ", ".join(d.get("hostnames", []))
-                print(f"  [+] Puertos abiertos: {res['puertos']}")
-                if res["vulns"]:
-                    print(f"  [!] CVEs: {', '.join(res['vulns'][:5])}")
-        except Exception:
-            pass
+                vn = d.get("vulns") or []
+                fila["internetdb_resumen"] = {
+                    "ports": d.get("ports"),
+                    "cpes": (d.get("cpes") or [])[:20],
+                    "hostnames": d.get("hostnames"),
+                    "tags": d.get("tags"),
+                    "vulns_count": len(vn),
+                    "vulns_muestra": vn[:12],
+                    "os": d.get("os"),
+                }
+                res["por_ip"].append(fila)
+                for p in d.get("ports") or []:
+                    try:
+                        puertos.add(int(p))
+                    except (TypeError, ValueError):
+                        pass
+                for c in d.get("cpes") or []:
+                    if isinstance(c, str):
+                        cpes.add(c)
+                for t in d.get("tags") or []:
+                    if isinstance(t, str):
+                        tags.add(t)
+                for h in d.get("hostnames") or []:
+                    if isinstance(h, str):
+                        hostnames.add(h)
+                for v in d.get("vulns") or []:
+                    if isinstance(v, str) and v.upper() not in [x.upper() for x in vulns]:
+                        vulns.append(v)
+                o = (d.get("os") or "").strip() if isinstance(d.get("os"), str) else ""
+                if o and not os_val:
+                    os_val = o
+            except Exception as ex:
+                fila["error"] = str(ex)
+                res["por_ip"].append(fila)
+        res["puertos"] = sorted(puertos)
+        res["servicios"] = sorted(cpes)
+        res["vulns"] = vulns[:50]
+        res["tags"] = sorted(tags)
+        res["os"] = os_val
+        res["hostname"] = ", ".join(sorted(hostnames)[:30])
+        res["ip"] = res["ip_primera"]
+        res["vulns_total_unicos"] = len(vulns)
+        res["vulns_truncados_a"] = len(res["vulns"])
+        print(f"  [+] Puertos (unión): {res['puertos']}")
+        if res["vulns"]:
+            print(f"  [!] CVEs (InternetDB, unión): {', '.join(res['vulns'][:8])}{'...' if len(res['vulns']) > 8 else ''}")
+        if res["os"]:
+            print(f"  [+] OS (InternetDB): {res['os']}")
         return res
 
-    def shodan_host_enriquecido(self, ip: str) -> Dict[str, Any]:
-        """InternetDB + detalle NVD (límite de CVEs por rate limit de NVD sin API key)."""
-        base = self.shodan_host(ip)
+    def shodan_host(self, ip: str) -> Dict[str, Any]:
+        """Compatibilidad: una sola IP."""
+        return self.shodan_internetdb_aggregate([ip])
+
+    def shodan_host_enriquecido(self, ips: List[str]) -> Dict[str, Any]:
+        """InternetDB multi-IP + detalle NVD (límite de CVEs por rate limit de NVD sin API key)."""
+        base = self.shodan_internetdb_aggregate(ips)
         cves = list(base.get("vulns") or [])
         detalles: List[Dict[str, Any]] = []
         max_cve = 6
@@ -1019,7 +1104,7 @@ class OSINTv5:
         sh: Dict[str, Any] = {}
         ips = out["ip"].get("ips") or []
         if ips:
-            sh = self.shodan_host_enriquecido(ips[0])
+            sh = self.shodan_host_enriquecido(ips)
         self._enriquecer_shodan_con_huella_web(sh, out["extraccion_profunda"], host)
         out["shodan"] = sh
         out["escaneo_seguridad"] = self.escaneo_hallazgos_seguridad(host, url, sh)
@@ -1290,22 +1375,6 @@ class OSINTv5:
                     snippets = re.findall(r'<div class="[^"]*"[^>]*>([^<]{30,200})</div>', r.text)
                     for s in snippets:
                         txt = re.sub(r"<[^>]+>", "", s).strip()
-                        for loc in [
-                            "Buenos Aires",
-                            "Cordoba",
-                            "Rosario",
-                            "Mendoza",
-                            "CABA",
-                            "Madrid",
-                            "Barcelona",
-                            "Miami",
-                            "Mexico",
-                            "Santiago",
-                            "Bogota",
-                            "Lima",
-                        ]:
-                            if loc.lower() in txt.lower():
-                                res["ubicaciones"].add(loc)
                         if "pastebin" in dork.lower() and len(txt) > 30:
                             res["filtraciones"].add(txt[:150])
                 time.sleep(1.6)
@@ -1439,11 +1508,98 @@ class OSINTv5:
             "ubicaciones": set(),
             "redes_sociales": set(),
             "cves": set(),
+            "ips_resueltas": set(),
+            "geo_ip_api": set(),
+            "registro_publico": set(),
+            "infra": set(),
         }
+
+        def desde_ip_bloque(b: Any) -> None:
+            if not isinstance(b, dict):
+                return
+            for ipx in b.get("ips") or []:
+                if isinstance(ipx, str) and re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ipx):
+                    c["ips_resueltas"].add(ipx)
+            p, ci = (b.get("pais") or "").strip(), (b.get("ciudad") or "").strip()
+            if p or ci:
+                c["geo_ip_api"].add(f"ip-api: {p or '?'} | {ci or '?'}")
+            for ptr in b.get("ptr_por_ip") or []:
+                if isinstance(ptr, dict):
+                    ipx = ptr.get("ip")
+                    nm = ptr.get("ptr")
+                    if isinstance(ipx, str) and isinstance(nm, str) and nm:
+                        c["infra"].add(f"PTR {ipx} -> {nm}")
+
+        def desde_rdap(rdap: Any) -> None:
+            if not isinstance(rdap, dict):
+                return
+            for em in rdap.get("emails") or []:
+                if isinstance(em, str) and "@" in em:
+                    c["emails"].add(em)
+            if rdap.get("registrante"):
+                c["registro_publico"].add(f"RDAP registrante: {str(rdap['registrante'])[:220]}")
+            if rdap.get("registrar"):
+                c["registro_publico"].add(f"RDAP registrar: {str(rdap['registrar'])[:220]}")
+            for ns in rdap.get("nombres_seguro") or []:
+                if isinstance(ns, str):
+                    c["infra"].add(f"NS {ns}")
+
+        def desde_whois(w: Any) -> None:
+            if not isinstance(w, dict):
+                return
+            if w.get("registrante"):
+                c["registro_publico"].add(f"WHOIS scrape: {str(w['registrante'])[:220]}")
+            em = (w.get("email") or "").strip()
+            if em and "@" in em:
+                c["emails"].add(em)
+
+        def desde_shodan(sh: Any) -> None:
+            if not isinstance(sh, dict):
+                return
+            for ipx in sh.get("ips_consultadas") or []:
+                if isinstance(ipx, str):
+                    c["ips_resueltas"].add(ipx)
+            for v in sh.get("vulns") or []:
+                if isinstance(v, str):
+                    c["cves"].add(v.upper())
+            for row in sh.get("nvd_cve_por_huella_web") or []:
+                if isinstance(row, dict) and row.get("cve"):
+                    c["cves"].add(str(row["cve"]).upper())
+            for cpe in sh.get("servicios") or []:
+                if isinstance(cpe, str):
+                    c["infra"].add(f"CPE {cpe[:180]}")
+            hn = sh.get("hostname") or ""
+            if isinstance(hn, str):
+                for part in re.split(r"[\s,]+", hn):
+                    p = part.strip()
+                    if len(p) > 3:
+                        c["infra"].add(f"hostname {p}")
+            if isinstance(sh.get("os"), str) and sh["os"].strip():
+                c["infra"].add(f"OS InternetDB: {sh['os'].strip()}")
+
+        def desde_google(g: Any) -> None:
+            if not isinstance(g, dict):
+                return
+            for u in g.get("urls") or []:
+                if isinstance(u, str) and u.startswith("http"):
+                    c["redes_sociales"].add(u)
+            for r in g.get("redes") or []:
+                if isinstance(r, str) and r.startswith("http"):
+                    c["redes_sociales"].add(r)
 
         def extract(obj: Any) -> None:
             if isinstance(obj, dict):
                 for k, v in obj.items():
+                    if k == "ip":
+                        desde_ip_bloque(v)
+                    elif k == "rdap":
+                        desde_rdap(v)
+                    elif k == "whois":
+                        desde_whois(v)
+                    elif k == "shodan":
+                        desde_shodan(v)
+                    elif k == "google":
+                        desde_google(v)
                     if k in ("email", "emails", "commits_emails", "emails_en_pastes") and v:
                         if isinstance(v, list):
                             c["emails"].update(str(x) for x in v if "@" in str(x))
@@ -1461,9 +1617,13 @@ class OSINTv5:
                             c["ubicaciones"].add(v)
                     if k in ("redes", "plataformas", "redes_sociales"):
                         if isinstance(v, dict):
-                            c["redes_sociales"].update(v.keys())
+                            for kk, vv in v.items():
+                                if isinstance(vv, dict) and vv.get("url"):
+                                    c["redes_sociales"].add(str(vv["url"]))
+                                else:
+                                    c["redes_sociales"].add(str(kk))
                         elif isinstance(v, list):
-                            c["redes_sociales"].update(str(x) for x in v)
+                            c["redes_sociales"].update(str(x) for x in v if str(x).startswith("http"))
                     if k in ("og_url", "canonical") and isinstance(v, str) and v.startswith("http"):
                         c["redes_sociales"].add(v)
                     for val in v if isinstance(v, list) else [v]:
@@ -1483,9 +1643,13 @@ class OSINTv5:
         return {
             "emails": [e for e in sorted(c["emails"]) if "example" not in e][:30],
             "telefonos": [t for t in sorted(c["telefonos"]) if len(re.sub(r"\D", "", t)) >= 8][:20],
-            "ubicaciones": sorted(c["ubicaciones"])[:20],
-            "redes_sociales": sorted(c["redes_sociales"])[:30],
-            "cves": sorted(c["cves"])[:40],
+            "ubicaciones": sorted(c["ubicaciones"])[:25],
+            "redes_sociales": sorted(c["redes_sociales"])[:35],
+            "cves": sorted(c["cves"])[:50],
+            "ips_resueltas": sorted(c["ips_resueltas"])[:15],
+            "geo_desde_ip_api": sorted(c["geo_ip_api"])[:10],
+            "registro_publico_rdap_whois": sorted(c["registro_publico"])[:12],
+            "infra_hostnames_cpe_ptr": sorted(c["infra"])[:40],
         }
 
     def guardar(self, resultado: Dict[str, Any]) -> Optional[str]:
@@ -1513,8 +1677,8 @@ class OSINTv5:
     def menu(self) -> None:
         while True:
             print("\n" + "=" * 65)
-            print("  OSINT INTELLIGENCE SYSTEM v5.3")
-            print("  OSINT público | Filtraciones multi-fuente | Org/URL + escaneo superficie")
+            print("  OSINT INTELLIGENCE SYSTEM v5.4")
+            print("  OSINT verificable | InternetDB multi-IP | correlación ampliada")
             print("=" * 65)
             print("\n  1. Buscar por EMAIL")
             print("  2. Buscar por NOMBRE / PERSONA")
@@ -1604,6 +1768,13 @@ class OSINTv5:
                     print(f"[+] REDES: {', '.join(c['redes_sociales'][:10])}")
                 if c.get("cves"):
                     print(f"[+] CVEs (en JSON): {', '.join(c['cves'][:12])}")
+                if c.get("ips_resueltas"):
+                    print(f"[+] IPs: {', '.join(c['ips_resueltas'][:6])}")
+                if c.get("geo_desde_ip_api"):
+                    print(f"[+] Geo (ip-api): {', '.join(c['geo_desde_ip_api'][:4])}")
+                if c.get("registro_publico_rdap_whois"):
+                    rp0 = c["registro_publico_rdap_whois"][0]
+                    print(f"[+] Registro: {rp0[:140]}{'…' if len(rp0) > 140 else ''}")
                 self.guardar(res)
             input("\n[Enter para continuar...]")
 
